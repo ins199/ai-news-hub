@@ -1,9 +1,7 @@
 {
-  "functions": {
-    "api/*.go": {
-      "runtime": "go"
-    }
-  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api?action=$1" }
+  ],
   "crons": [
     {
       "path": "/api/refresh",
