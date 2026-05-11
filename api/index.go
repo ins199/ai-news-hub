@@ -11,6 +11,7 @@ import (
 func Handler(w http.ResponseWriter, r *http.Request) {
 	action := r.URL.Query().Get("action")
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	switch action {
 	case "news":
@@ -22,6 +23,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	case "refresh":
 		handleRefresh(w)
 	default:
+		w.Header().Del("Content-Type")
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		http.NotFound(w, r)
 	}
 }

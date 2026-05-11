@@ -80,7 +80,8 @@ async function load(){
     hero();
     grid();
     stats();
-    updateRefreshTime();
+    if(d.last_refresh) lastRefresh=new Date(d.last_refresh);
+    tickRefresh();
   }catch(e){
     document.getElementById('articleGrid').innerHTML='<div class="empty-state">⚠️ 加载失败，请确认服务是否运行</div>';
   }
