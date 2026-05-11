@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AI 脉搏 — 科技资讯聚合</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="shimmer-overlay"></div>
+
+<header class="header" id="header">
+  <div class="header-inner">
+    <a href="/" class="logo">
+      <span class="logo-mark">◆</span>
+      <span>Pulse<span class="logo-accent">.</span></span>
+    </a>
+    <nav class="nav" id="sourceNav"></nav>
+    <div class="header-actions">
+      <span class="pulse" title="实时"></span>
+      <button class="btn-refresh" id="refreshBtn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.8-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <section class="hero" id="hero" style="display:none">
+    <div class="hero-content">
+      <div class="hero-eyebrow">头条聚焦</div>
+      <h1 class="hero-title"><a id="heroLink" href="#" target="_blank" rel="noopener"></a></h1>
+      <p class="hero-desc" id="heroDesc"></p>
+      <div class="hero-meta">
+        <span class="tag-source" id="heroSource"></span>
+        <span id="heroTime"></span>
+      </div>
+    </div>
+    <div class="hero-media">
+      <img id="heroImg" src="" alt="" onerror="this.parentElement.style.display='none'">
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="stats" id="stats"></div>
+      <span class="refresh-indicator" id="refreshTime">—</span>
+    </div>
+    <input type="text" class="search-input" id="searchInput" placeholder="搜索文章…">
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="grid" id="articleGrid">
+    <div class="skeleton" style="--delay:0ms"></div>
+    <div class="skeleton" style="--delay:80ms"></div>
+    <div class="skeleton" style="--delay:160ms"></div>
+    <div class="skeleton" style="--delay:240ms"></div>
+    <div class="skeleton" style="--delay:320ms"></div>
+    <div class="skeleton" style="--delay:400ms"></div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <p>实时聚合 <span>IT之家</span> · <span>爱范儿</span> · <span>少数派</span> · <span>Hacker News</span> ｜ 每 5 分钟自动刷新</p>
+</footer>
+
+<script>
+let all=[],src='',lastRefresh=null;
+
+async function load(){
+  try{
+    const u=src?`/api/news?source=${encodeURIComponent(src)}`:'/api/news';
+    const r=await fetch(u),d=await r.json();
+    all=d.articles;
+    nav(d.sources);
+    hero();
+    grid();
+    stats();
+    updateRefreshTime();
+  }catch(e){
+    document.getElementById('articleGrid').innerHTML='<div class="empty-state">⚠️ 加载失败，请确认服务是否运行</div>';
+  }
+}
+
+async function updateRefreshTime(){
+  try{
+    const r=await fetch('/api/status'),d=await r.json();
+    lastRefresh=new Date(d.last_refresh);
+    const staleMin=Math.floor((new Date()-lastRefresh)/60000);
+    if(staleMin>10){try{await fetch('/api/refresh')}catch(e){};await load()}
+  }catch(e){}
+  tickRefresh();
+}
+
+function tickRefresh(){
+  const el=document.getElementById('refreshTime');
+  if(!lastRefresh){el.textContent='—';return}
+  const s=Math.floor((new Date()-lastRefresh)/1000);
+  if(s<5)el.textContent='刚刚刷新';
+  else if(s<60)el.textContent=`${s} 秒前刷新`;
+  else{const m=Math.floor(s/60);if(m<60)el.textContent=`${m} 分钟前刷新`;else el.textContent=`${Math.floor(m/60)} 小时前刷新`}
+}
+
+// 每30秒检查服务端刷新状态，发现超10分钟未刷新则自动触发
+setInterval(updateRefreshTime,30000);
+// 每5分钟重新拉取文章
+setInterval(load,300000);
+// 从后台切回时自动刷新
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
+
+function nav(sources){
+  const n=document.getElementById('sourceNav');
+  n.innerHTML='<button class="nav-btn active" data-src="">全部</button>'+
+    sources.map(s=>`<button class="nav-btn" data-src="${escAttr(s)}">${escHtml(s)}</button>`).join('');
+  n.querySelectorAll('.nav-btn').forEach(b=>{b.onclick=()=>{
+    n.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');src=b.dataset.src;hero();grid();stats();
+  }});
+}
+
+function hero(){
+  const h=document.getElementById('hero'),a=all[0];
+  if(!a||src){h.style.display='none';return}
+  h.style.display='grid';
+  document.getElementById('heroLink').textContent=a.title;
+  document.getElementById('heroLink').href=a.link;
+  document.getElementById('heroDesc').textContent=a.summary||'';
+  document.getElementById('heroSource').textContent=a.source;
+  document.getElementById('heroTime').textContent=fTime(a.published_at);
+  const img=document.getElementById('heroImg');
+  if(a.image_url){
+    img.style.opacity='0';
+    img.src=a.image_url;img.parentElement.style.display='';
+    img.onload=()=>{img.style.transition='opacity 0.5s';img.style.opacity='1'};
+    if(img.complete)img.style.opacity='1';
+  }else{img.parentElement.style.display='none'}
+}
+
+function grid(){
+  const g=document.getElementById('articleGrid');
+  let arts=src?all.filter(a=>a.source===src):all;
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  if(q)arts=arts.filter(a=>a.title.toLowerCase().includes(q));
+  if(!arts.length){g.innerHTML='<div class="empty-state">未找到匹配文章</div>';return}
+  g.innerHTML=arts.map((a,i)=>`
+    <article class="card" style="--i:${i}">
+      ${a.image_url?`<div class="card-img"><img src="${escAttr(a.image_url)}" alt="" onerror="this.parentElement.remove()"></div>`:''}
+      <div class="card-body">
+        <div class="card-top">
+          <span class="tag-source">${escHtml(a.source)}</span>
+          <time>${fTime(a.published_at)}</time>
+        </div>
+        <h2 class="card-title"><a href="${escAttr(a.link)}" target="_blank" rel="noopener">${escHtml(a.title)}</a></h2>
+        <p class="card-desc">${escHtml(a.summary||'')}</p>
+        ${a.tags&&a.tags.length?`<div class="card-tags">${a.tags.slice(0,4).map(t=>`<span class="tag-chip">${escHtml(t)}</span>`).join('')}</div>`:''}
+      </div>
+    </article>
+  `).join('');
+  observeCards();
+}
+
+function stats(){
+  document.getElementById('stats').textContent=`共 ${all.length} 篇文章`;
+}
+
+function fTime(t){
+  if(!t)return'';const d=new Date(t),n=new Date(),x=n-d;
+  const m=Math.floor(x/6e4),h=Math.floor(x/36e5),D=Math.floor(x/864e5);
+  if(m<1)return'刚刚';if(m<60)return`${m} 分钟前`;
+  if(h<24)return`${h} 小时前`;if(D<7)return`${D} 天前`;
+  return d.toLocaleDateString('zh-CN',{month:'short',day:'numeric'});
+}
+
+function escHtml(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function escAttr(s){return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+document.getElementById('refreshBtn').onclick=async()=>{
+  const b=document.getElementById('refreshBtn');b.classList.add('spinning');
+  try{await fetch('/api/refresh')}catch(e){}
+  await load();setTimeout(()=>b.classList.remove('spinning'),600);
+};
+document.getElementById('searchInput').oninput=grid;
+
+// ── scroll reveal ──
+const observer=new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');observer.unobserve(e.target)}});
+},{threshold:0.1,rootMargin:'0px 0px -30px 0px'});
+
+function observeCards(){
+  document.querySelectorAll('.card').forEach(c=>observer.observe(c));
+  document.querySelectorAll('.card-img img').forEach(img=>{
+    if(img.complete){img.classList.add('loaded')}else{img.onload=()=>img.classList.add('loaded')}
+  });
+}
+
+// ── header scroll effect ──
+window.addEventListener('scroll',()=>{
+  document.getElementById('header').classList.toggle('scrolled',window.scrollY>20);
+},{passive:true});
+
+load();
+</script>
+</body>
+</html>

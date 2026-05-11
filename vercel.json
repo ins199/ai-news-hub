@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/*.go": {
+      "runtime": "go"
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/refresh",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}

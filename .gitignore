@@ -1,0 +1,6 @@
+ai-news-hub
+.env
+.env.local
+.vercel
+.idea/
+.claude/
