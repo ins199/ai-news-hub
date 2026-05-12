@@ -3,8 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>AI 脉搏 — 科技资讯聚合</title>
+<title>AI 脉搏 — 科技资讯聚合 | 实时 AI 与科技新闻</title>
+<meta name="description" content="AI 脉搏实时聚合 IT之家、爱范儿、少数派、Hacker News 等科技媒体最新资讯，一站式追踪人工智能与科技行业动态。">
+<meta name="keywords" content="AI,人工智能,科技资讯,IT之家,爱范儿,少数派,Hacker News,科技新闻">
+<meta property="og:title" content="AI 脉搏 — 实时科技资讯聚合">
+<meta property="og:description" content="一站式追踪 AI 与科技行业最新动态，聚合多家科技媒体实时资讯。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ai-news-hub-xi.vercel.app">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AI 脉搏 — 实时科技资讯聚合">
+<meta name="twitter:description" content="一站式追踪 AI 与科技行业最新动态。">
+<link rel="canonical" href="https://ai-news-hub-xi.vercel.app">
 <link rel="stylesheet" href="/static/style.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "AI 脉搏",
+  "url": "https://ai-news-hub-xi.vercel.app",
+  "description": "实时聚合 IT之家、爱范儿、少数派、Hacker News 等科技媒体最新资讯。",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://ai-news-hub-xi.vercel.app/?q={search_term_string}",
+    "query-input": "required name=search_term_string"
+  }
+}
+</script>
 </head>
 <body>
 
@@ -16,7 +40,10 @@
       <span class="logo-mark">◆</span>
       <span>Pulse<span class="logo-accent">.</span></span>
     </a>
-    <nav class="nav" id="sourceNav"></nav>
+    <nav class="nav" id="sourceNav">
+      <button class="nav-btn active" data-src="">全部</button>
+      {{range .Sources}}<button class="nav-btn" data-src="{{.}}">{{.}}</button>{{end}}
+    </nav>
     <div class="header-actions">
       <span class="pulse" title="实时"></span>
       <button class="btn-refresh" id="refreshBtn">
@@ -28,24 +55,28 @@
 
 <main class="main">
 
-  <section class="hero" id="hero" style="display:none">
+  {{if .Articles}}
+  <section class="hero" id="hero">
     <div class="hero-content">
       <div class="hero-eyebrow">头条聚焦</div>
-      <h1 class="hero-title"><a id="heroLink" href="#" target="_blank" rel="noopener"></a></h1>
-      <p class="hero-desc" id="heroDesc"></p>
+      <h1 class="hero-title"><a id="heroLink" href="{{(index .Articles 0).Link}}" target="_blank" rel="noopener">{{(index .Articles 0).Title}}</a></h1>
+      <p class="hero-desc" id="heroDesc">{{(index .Articles 0).Summary}}</p>
       <div class="hero-meta">
-        <span class="tag-source" id="heroSource"></span>
-        <span id="heroTime"></span>
+        <span class="tag-source" id="heroSource">{{(index .Articles 0).Source}}</span>
+        <span id="heroTime">{{(index .Articles 0).PublishedAt.Format "2006-01-02 15:04"}}</span>
       </div>
     </div>
+    {{if (index .Articles 0).ImageURL}}
     <div class="hero-media">
-      <img id="heroImg" src="" alt="" onerror="this.parentElement.style.display='none'">
+      <img id="heroImg" src="{{(index .Articles 0).ImageURL}}" alt="">
     </div>
+    {{end}}
   </section>
+  {{end}}
 
   <div class="toolbar">
     <div class="toolbar-left">
-      <div class="stats" id="stats"></div>
+      <div class="stats" id="stats">共 {{len .Articles}} 篇文章</div>
       <span class="refresh-indicator" id="refreshTime">—</span>
     </div>
     <input type="text" class="search-input" id="searchInput" placeholder="搜索文章…">
@@ -54,12 +85,20 @@
   <div class="divider"></div>
 
   <div class="grid" id="articleGrid">
-    <div class="skeleton" style="--delay:0ms"></div>
-    <div class="skeleton" style="--delay:80ms"></div>
-    <div class="skeleton" style="--delay:160ms"></div>
-    <div class="skeleton" style="--delay:240ms"></div>
-    <div class="skeleton" style="--delay:320ms"></div>
-    <div class="skeleton" style="--delay:400ms"></div>
+    {{range .Articles}}
+    <article class="card">
+      {{if .ImageURL}}<div class="card-img"><img src="{{.ImageURL}}" alt=""></div>{{end}}
+      <div class="card-body">
+        <div class="card-top">
+          <span class="tag-source">{{.Source}}</span>
+          <time datetime="{{.PublishedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.PublishedAt.Format "2006-01-02 15:04"}}</time>
+        </div>
+        <h2 class="card-title"><a href="{{.Link}}" target="_blank" rel="noopener">{{.Title}}</a></h2>
+        <p class="card-desc">{{.Summary}}</p>
+        {{if .Tags}}<div class="card-tags">{{range $i, $t := .Tags}}{{if lt $i 4}}<span class="tag-chip">{{$t}}</span>{{end}}{{end}}</div>{{end}}
+      </div>
+    </article>
+    {{end}}
   </div>
 
 </main>
@@ -69,9 +108,28 @@
 </footer>
 
 <script>
+window.__DATA__ = {
+  articles: {{.ArticlesJSON}},
+  sources: {{.SourcesJSON}},
+  lastRefresh: {{.LastRefreshJSON}}
+};
+</script>
+
+<script>
 let all=[],src='',lastRefresh=null;
 
 async function load(){
+  if(window.__DATA__){
+    all=window.__DATA__.articles;
+    lastRefresh=new Date(window.__DATA__.lastRefresh);
+    nav(window.__DATA__.sources);
+    hero();
+    grid();
+    stats();
+    tickRefresh();
+    delete window.__DATA__;
+    return;
+  }
   try{
     const u=src?`/api/news?source=${encodeURIComponent(src)}`:'/api/news';
     const r=await fetch(u),d=await r.json();
@@ -147,20 +205,7 @@ function grid(){
   const q=(document.getElementById('searchInput').value||'').toLowerCase();
   if(q)arts=arts.filter(a=>a.title.toLowerCase().includes(q));
   if(!arts.length){g.innerHTML='<div class="empty-state">未找到匹配文章</div>';return}
-  g.innerHTML=arts.map((a,i)=>`
-    <article class="card" style="--i:${i}">
-      ${a.image_url?`<div class="card-img"><img src="${escAttr(a.image_url)}" alt="" onerror="this.parentElement.remove()"></div>`:''}
-      <div class="card-body">
-        <div class="card-top">
-          <span class="tag-source">${escHtml(a.source)}</span>
-          <time>${fTime(a.published_at)}</time>
-        </div>
-        <h2 class="card-title"><a href="${escAttr(a.link)}" target="_blank" rel="noopener">${escHtml(a.title)}</a></h2>
-        <p class="card-desc">${escHtml(a.summary||'')}</p>
-        ${a.tags&&a.tags.length?`<div class="card-tags">${a.tags.slice(0,4).map(t=>`<span class="tag-chip">${escHtml(t)}</span>`).join('')}</div>`:''}
-      </div>
-    </article>
-  `).join('');
+  g.innerHTML=arts.map((a,i)=>`<article class="card" style="--i:${i}">${a.image_url?`<div class="card-img"><img src="${escAttr(a.image_url)}" alt="" onerror="this.parentElement.remove()"></div>`:''}<div class="card-body"><div class="card-top"><span class="tag-source">${escHtml(a.source)}</span><time>${fTime(a.published_at)}</time></div><h2 class="card-title"><a href="${escAttr(a.link)}" target="_blank" rel="noopener">${escHtml(a.title)}</a></h2><p class="card-desc">${escHtml(a.summary||'')}</p>${a.tags&&a.tags.length?`<div class="card-tags">${a.tags.slice(0,4).map(t=>`<span class="tag-chip">${escHtml(t)}</span>`).join('')}</div>`:''}</div></article>`).join('');
   observeCards();
 }
 
